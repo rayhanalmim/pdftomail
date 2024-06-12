@@ -23,6 +23,7 @@
     "html-pdf": "^3.0.1",
     "http-status": "^1.7.4",
     "mongoose": "^8.4.1",
+    "pdf-lib": "^1.17.1",
     "phantomjs-prebuilt": "^2.1.16",
     "puppeteer-core": "^10.4.0"
   },

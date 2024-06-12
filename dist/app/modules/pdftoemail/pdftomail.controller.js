@@ -13,11 +13,8 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.PdfController = void 0;
-const fs_1 = __importDefault(require("fs"));
-const path_1 = __importDefault(require("path"));
-const handlebars_1 = __importDefault(require("handlebars"));
 const aws_sdk_1 = __importDefault(require("aws-sdk"));
-const html_pdf_1 = __importDefault(require("html-pdf"));
+const pdf_lib_1 = require("pdf-lib"); // Import pdf-lib for creating PDFs
 const config_1 = __importDefault(require("../../config"));
 // Configure AWS
 aws_sdk_1.default.config.update({
@@ -37,65 +34,41 @@ const generateAndUploadPdf = (req, res) => __awaiter(void 0, void 0, void 0, fun
                 message: "Title and content are required.",
             });
         }
-        // HTML template as a string
-        const templateContent = `
-      <html lang="en">
-        <head>
-          <meta charset="UTF-8" />
-          <title>Document</title>
-        </head>
-        <body>
-          <h1>{{title}}</h1>
-          <p>{{content}}</p>
-        </body>
-      </html>
-    `;
-        // Compile the template
-        const template = handlebars_1.default.compile(templateContent);
-        // Generate HTML from the template and data
-        const html = template({ title: pdfData.title, content: pdfData.content });
-        // Use html-pdf to generate the PDF
-        html_pdf_1.default.create(html).toFile((err, fileInfo) => {
-            if (err) {
-                console.error("Error generating PDF:", err);
+        // Create a new PDF document
+        const pdfDoc = yield pdf_lib_1.PDFDocument.create();
+        const page = pdfDoc.addPage();
+        // Draw title and content on the page
+        page.drawText(pdfData.title, { x: 50, y: 750 });
+        page.drawText(pdfData.content, { x: 50, y: 700 });
+        // Serialize the PDFDocument to bytes
+        const pdfBytes = yield pdfDoc.save();
+        // Upload the PDF to AWS S3
+        const uploadParams = {
+            Bucket: "loamic-media",
+            Key: `pdfs/${Date.now()}-output.pdf`,
+            Body: pdfBytes,
+            ContentType: "application/pdf",
+        };
+        s3.upload(uploadParams, (uploadErr, data) => __awaiter(void 0, void 0, void 0, function* () {
+            if (uploadErr) {
+                console.error("Error uploading to S3:", uploadErr);
                 return res.status(500).json({
                     success: false,
-                    message: "Failed to generate PDF",
-                    error: err,
+                    message: "Failed to upload PDF to S3",
+                    error: uploadErr,
                 });
             }
-            // Upload the PDF to AWS S3
-            const fileContent = fs_1.default.readFileSync(fileInfo.filename);
-            const uploadParams = {
+            // Generate a pre-signed URL for the uploaded PDF
+            const signedUrl = yield s3.getSignedUrlPromise("getObject", {
                 Bucket: "loamic-media",
-                Key: `pdfs/${Date.now()}-${path_1.default.basename(fileInfo.filename)}`,
-                Body: fileContent,
-                ContentType: "application/pdf",
-            };
-            s3.upload(uploadParams, (uploadErr, data) => __awaiter(void 0, void 0, void 0, function* () {
-                if (uploadErr) {
-                    console.error("Error uploading to S3:", uploadErr);
-                    fs_1.default.unlinkSync(fileInfo.filename); // Ensure temporary file is deleted even on upload failure
-                    return res.status(500).json({
-                        success: false,
-                        message: "Failed to upload PDF to S3",
-                        error: uploadErr,
-                    });
-                }
-                // Generate a pre-signed URL for the uploaded PDF
-                const signedUrl = yield s3.getSignedUrlPromise("getObject", {
-                    Bucket: "loamic-media",
-                    Key: uploadParams.Key,
-                    Expires: 60 * 5, // Link expires in 5 minutes
-                });
-                // Delete temporary file
-                fs_1.default.unlinkSync(fileInfo.filename);
-                res.json({
-                    downloadUrl: signedUrl,
-                    message: "Email sent successfully",
-                });
-            }));
-        });
+                Key: uploadParams.Key,
+                Expires: 60 * 5, // Link expires in 5 minutes
+            });
+            res.json({
+                downloadUrl: signedUrl,
+                message: "PDF generated and uploaded successfully",
+            });
+        }));
     }
     catch (error) {
         console.error("Unexpected error:", error);

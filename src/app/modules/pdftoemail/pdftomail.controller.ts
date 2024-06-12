@@ -3,7 +3,7 @@ import fs from "fs";
 import path from "path";
 import handlebars from "handlebars";
 import AWS from "aws-sdk";
-import pdf from "html-pdf";
+import { PDFDocument } from "pdf-lib"; // Import pdf-lib for creating PDFs
 import config from "../../config";
 
 // Configure AWS
@@ -27,71 +27,45 @@ const generateAndUploadPdf = async (req: Request, res: Response) => {
       });
     }
 
-    // HTML template as a string
-    const templateContent = `
-      <html lang="en">
-        <head>
-          <meta charset="UTF-8" />
-          <title>Document</title>
-        </head>
-        <body>
-          <h1>{{title}}</h1>
-          <p>{{content}}</p>
-        </body>
-      </html>
-    `;
+    // Create a new PDF document
+    const pdfDoc = await PDFDocument.create();
+    const page = pdfDoc.addPage();
 
-    // Compile the template
-    const template = handlebars.compile(templateContent);
+    // Draw title and content on the page
+    page.drawText(pdfData.title, { x: 50, y: 750 });
+    page.drawText(pdfData.content, { x: 50, y: 700 });
 
-    // Generate HTML from the template and data
-    const html = template({ title: pdfData.title, content: pdfData.content });
+    // Serialize the PDFDocument to bytes
+    const pdfBytes = await pdfDoc.save();
 
-    // Use html-pdf to generate the PDF
-    pdf.create(html).toFile((err, fileInfo) => {
-      if (err) {
-        console.error("Error generating PDF:", err);
+    // Upload the PDF to AWS S3
+    const uploadParams = {
+      Bucket: "loamic-media",
+      Key: `pdfs/${Date.now()}-output.pdf`,
+      Body: pdfBytes,
+      ContentType: "application/pdf",
+    };
+
+    s3.upload(uploadParams, async (uploadErr: any, data: any) => {
+      if (uploadErr) {
+        console.error("Error uploading to S3:", uploadErr);
         return res.status(500).json({
           success: false,
-          message: "Failed to generate PDF",
-          error: err,
+          message: "Failed to upload PDF to S3",
+          error: uploadErr,
         });
       }
 
-      // Upload the PDF to AWS S3
-      const fileContent = fs.readFileSync(fileInfo.filename);
-      const uploadParams = {
+      // Generate a pre-signed URL for the uploaded PDF
+      const signedUrl = await s3.getSignedUrlPromise("getObject", {
         Bucket: "loamic-media",
-        Key: `pdfs/${Date.now()}-${path.basename(fileInfo.filename)}`,
-        Body: fileContent,
-        ContentType: "application/pdf",
-      };
+        Key: uploadParams.Key,
+        Expires: 60 * 5, // Link expires in 5 minutes
+      });
 
-      s3.upload(uploadParams, async (uploadErr: any, data: any) => {
-        if (uploadErr) {
-          console.error("Error uploading to S3:", uploadErr);
-          fs.unlinkSync(fileInfo.filename); // Ensure temporary file is deleted even on upload failure
-          return res.status(500).json({
-            success: false,
-            message: "Failed to upload PDF to S3",
-            error: uploadErr,
-          });
-        }
-
-        // Generate a pre-signed URL for the uploaded PDF
-        const signedUrl = await s3.getSignedUrlPromise("getObject", {
-          Bucket: "loamic-media",
-          Key: uploadParams.Key,
-          Expires: 60 * 5, // Link expires in 5 minutes
-        });
-
-        // Delete temporary file
-        fs.unlinkSync(fileInfo.filename);
-
-        res.json({
-          downloadUrl: signedUrl,
-          message: "Email sent successfully",
-        });
+      res.json({
+        downloadUrl: signedUrl,
+        message: "PDF generated and uploaded successfully",
       });
     });
   } catch (error) {
