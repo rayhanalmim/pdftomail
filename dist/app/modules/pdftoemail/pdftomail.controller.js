@@ -13,8 +13,9 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.PdfController = void 0;
+const handlebars_1 = __importDefault(require("handlebars"));
+const pdf_lib_1 = require("pdf-lib"); // Import pdf-lib for PDF generation
 const aws_sdk_1 = __importDefault(require("aws-sdk"));
-const pdf_lib_1 = require("pdf-lib"); // Import pdf-lib for creating PDFs
 const config_1 = __importDefault(require("../../config"));
 // Configure AWS
 aws_sdk_1.default.config.update({
@@ -34,13 +35,46 @@ const generateAndUploadPdf = (req, res) => __awaiter(void 0, void 0, void 0, fun
                 message: "Title and content are required.",
             });
         }
+        // HTML template as a string
+        const templateContent = `
+      <h1>{{title}}</h1>
+      <p>{{content}}</p>
+    `;
+        // Compile the template
+        const template = handlebars_1.default.compile(templateContent);
+        // Generate HTML from the template and data
+        const html = template({ title: pdfData.title, content: pdfData.content });
         // Create a new PDF document
         const pdfDoc = yield pdf_lib_1.PDFDocument.create();
+        // Add a new page to the document
         const page = pdfDoc.addPage();
-        // Draw title and content on the page
-        page.drawText(pdfData.title, { x: 50, y: 750 });
-        page.drawText(pdfData.content, { x: 50, y: 700 });
-        // Serialize the PDFDocument to bytes
+        // Load a font
+        const font = yield pdfDoc.embedFont(pdf_lib_1.StandardFonts.Helvetica);
+        // Set the initial position for text drawing
+        const { width, height } = page.getSize();
+        let yPosition = height - 50;
+        // Function to draw text with specific options
+        const drawText = (text, fontSize, color, lineHeight) => {
+            page.drawText(text, {
+                x: 50,
+                y: yPosition,
+                maxWidth: width - 100,
+                size: fontSize,
+                font: font,
+                color: (0, pdf_lib_1.rgb)(color[0], color[1], color[2]),
+                lineHeight: lineHeight,
+            });
+            yPosition -= lineHeight;
+        };
+        // Split HTML content into parts and draw them separately
+        const htmlParts = [
+            { text: pdfData.title, fontSize: 24, color: [0, 0, 0], lineHeight: 30 },
+            { text: pdfData.content, fontSize: 12, color: [0, 0, 0], lineHeight: 18 },
+        ];
+        for (const part of htmlParts) {
+            drawText(part.text, part.fontSize, part.color, part.lineHeight);
+        }
+        // Serialize the PDF document to bytes
         const pdfBytes = yield pdfDoc.save();
         // Upload the PDF to AWS S3
         const uploadParams = {
