@@ -1,6 +1,7 @@
 import express from "express";
+import { PdfController } from "./pdftomail.controller";
 const router = express.Router();
 
-router.post("/orders");
+router.post("/generate-pdf", PdfController.generateAndUploadPdf);
 
-export const OrderRoute = router;
+export const pdftomail = router;

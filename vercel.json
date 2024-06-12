@@ -3,7 +3,17 @@
   "builds": [
     {
       "src": "dist/server.js",
-      "use": "@vercel/node"
+      "use": "@vercel/node",
+      "config": {
+        "includeFiles": ["dist/**"]
+      }
+    },
+    {
+      "src": "install_dependencies.sh",
+      "use": "@vercel/static-build",
+      "config": {
+        "distDir": "node_modules"
+      }
     }
   ],
   "routes": [
