@@ -5,7 +5,7 @@
   "main": "index.js",
   "scripts": {
     "start:dev": "ts-node-dev --respawn --transpile-only src/server.ts",
-    "start:prod": "node ./dist/server.js",
+    "start": "node ./dist/server.js",
     "build": "tsc",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
@@ -15,18 +15,13 @@
   "dependencies": {
     "aws-sdk": "^2.1638.0",
     "chrome-aws-lambda": "^10.1.0",
-    "cloudinary": "^2.2.0",
     "cors": "^2.8.5",
     "dotenv": "^16.4.5",
     "express": "^4.19.2",
     "handlebars": "^4.7.8",
-    "html-pdf": "^3.0.1",
-    "html-pdf-chrome": "^0.8.4",
     "http-status": "^1.7.4",
     "mongoose": "^8.4.1",
-    "pdf-lib": "^1.17.1",
-    "phantomjs-prebuilt": "^2.1.16",
-    "puppeteer-core": "^10.4.0"
+    "pdf-lib": "^1.17.1"
   },
   "devDependencies": {
     "@types/cors": "^2.8.17",

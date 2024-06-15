@@ -20,24 +20,93 @@ const generateAndUploadPdf = async (req: Request, res: Response) => {
     const pdfData = req.body;
 
     // Validate input data
-    if (!pdfData.title || !pdfData.content) {
+    if (!pdfData.title || !pdfData.content || !pdfData.items) {
       return res.status(400).json({
         success: false,
-        message: "Title and content are required.",
+        message: "Title, content, and items are required.",
       });
     }
 
-    // HTML template as a string
+    // HTML template as a string with inline CSS for invoice design
     const templateContent = `
-      <h1>{{title}}</h1>
-      <p>{{content}}</p>
+      <style>
+        body { font-family: Arial, sans-serif; }
+        .invoice-box { max-width: 800px; margin: auto; padding: 30px; border: 1px solid #eee; box-shadow: 0 0 10px rgba(0, 0, 0, 0.15); font-size: 16px; line-height: 24px; color: #555; }
+        .invoice-box table { width: 100%; line-height: inherit; text-align: left; border-collapse: collapse; }
+        .invoice-box table td { padding: 5px; vertical-align: top; }
+        .invoice-box table tr td:nth-child(2) { text-align: right; }
+        .invoice-box table tr.top table td { padding-bottom: 20px; }
+        .invoice-box table tr.top table td.title { font-size: 45px; line-height: 45px; color: #333; }
+        .invoice-box table tr.information table td { padding-bottom: 40px; }
+        .invoice-box table tr.heading td { background: #eee; border-bottom: 1px solid #ddd; font-weight: bold; }
+        .invoice-box table tr.details td { padding-bottom: 20px; }
+        .invoice-box table tr.item td { border-bottom: 1px solid #eee; }
+        .invoice-box table tr.item.last td { border-bottom: none; }
+        .invoice-box table tr.total td:nth-child(2) { border-top: 2px solid #eee; font-weight: bold; }
+      </style>
+      <div class="invoice-box">
+        <table cellpadding="0" cellspacing="0">
+          <tr class="top">
+            <td colspan="2">
+              <table>
+                <tr>
+                  <td class="title">
+                    <h1>{{title}}</h1>
+                  </td>
+                  <td>
+                    Invoice #: 123<br />
+                    Created: {{date}}<br />
+                    Due: {{dueDate}}
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+          <tr class="information">
+            <td colspan="2">
+              <table>
+                <tr>
+                  <td>
+                    {{senderAddress}}
+                  </td>
+                  <td>
+                    {{recipientAddress}}
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+          <tr class="heading">
+            <td>Item</td>
+            <td>Price</td>
+          </tr>
+          {{#each items}}
+          <tr class="item">
+            <td>{{this.description}}</td>
+            <td>{{this.price}}</td>
+          </tr>
+          {{/each}}
+          <tr class="total">
+            <td></td>
+            <td>Total: {{total}}</td>
+          </tr>
+        </table>
+      </div>
     `;
 
     // Compile the template
     const template = handlebars.compile(templateContent);
 
     // Generate HTML from the template and data
-    const html = template({ title: pdfData.title, content: pdfData.content });
+    const html = template({
+      title: pdfData.title,
+      date: pdfData.date,
+      dueDate: pdfData.dueDate,
+      senderAddress: pdfData.senderAddress,
+      recipientAddress: pdfData.recipientAddress,
+      items: pdfData.items,
+      total: pdfData.total,
+    });
 
     // Create a new PDF document
     const pdfDoc = await PDFDocument.create();
@@ -79,7 +148,7 @@ const generateAndUploadPdf = async (req: Request, res: Response) => {
       lineHeight: number;
     }[] = [
       { text: pdfData.title, fontSize: 24, color: [0, 0, 0], lineHeight: 30 },
-      { text: pdfData.content, fontSize: 12, color: [0, 0, 0], lineHeight: 18 },
+      { text: html, fontSize: 12, color: [0, 0, 0], lineHeight: 18 },
     ];
 
     for (const part of htmlParts) {
@@ -129,6 +198,11 @@ const generateAndUploadPdf = async (req: Request, res: Response) => {
   }
 };
 
+const test = async (req: Request, res: Response) => {
+  res.send({ messege: "hello from test api" });
+};
+
 export const PdfController = {
   generateAndUploadPdf,
+  test,
 };
