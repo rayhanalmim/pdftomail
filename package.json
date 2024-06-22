@@ -4,7 +4,7 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "start:dev": "ts-node-dev --respawn --transpile-only src/server.ts",
+    "dev": "ts-node-dev --respawn --transpile-only src/server.ts",
     "start": "node ./dist/server.js",
     "build": "tsc",
     "test": "echo \"Error: no test specified\" && exit 1"
@@ -13,6 +13,9 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
+    "@pdfme/common": "^4.0.2",
+    "@pdfme/generator": "^4.0.2",
+    "@pdfme/ui": "^4.0.2",
     "aws-sdk": "^2.1638.0",
     "chrome-aws-lambda": "^10.1.0",
     "cors": "^2.8.5",
@@ -21,7 +24,8 @@
     "handlebars": "^4.7.8",
     "http-status": "^1.7.4",
     "mongoose": "^8.4.1",
-    "pdf-lib": "^1.17.1"
+    "pdf-lib": "^1.17.1",
+    "signature_pad": "^5.0.2"
   },
   "devDependencies": {
     "@types/cors": "^2.8.17",
